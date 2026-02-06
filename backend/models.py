@@ -1,7 +1,10 @@
 from datetime import date, datetime
+from typing import List, Optional
 
 from flask_login import UserMixin
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy import Boolean, Date, DateTime, Float, ForeignKey, Integer, String
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from werkzeug.security import check_password_hash, generate_password_hash
 
 db = SQLAlchemy()
@@ -10,22 +13,32 @@ db = SQLAlchemy()
 class User(UserMixin, db.Model):
     __tablename__ = "users"
 
-    id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(80), unique=True, nullable=False)
-    password_hash = db.Column(db.String(256), nullable=False)
-    display_name = db.Column(db.String(120), nullable=False)
-    is_admin = db.Column(db.Boolean, default=False, nullable=False)
-    monthly_allowance = db.Column(db.Float, default=0.0, nullable=False)
-    starting_balance = db.Column(db.Float, default=0.0, nullable=False)
-    allowance_start_date = db.Column(db.Date, nullable=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    username: Mapped[str] = mapped_column(String(80), unique=True, nullable=False)
+    password_hash: Mapped[str] = mapped_column(String(256), nullable=False)
+    display_name: Mapped[str] = mapped_column(String(120), nullable=False)
+    is_admin: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    monthly_allowance: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
+    starting_balance: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
+    allowance_start_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, nullable=False
+    )
 
-    transactions = db.relationship("Transaction", backref="user", lazy="dynamic")
-    withdrawal_requests = db.relationship(
+    transactions: Mapped[List["Transaction"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
+    
+    withdrawal_requests: Mapped[List["WithdrawalRequest"]] = relationship(
         "WithdrawalRequest",
-        backref="user",
+        back_populates="user",
         foreign_keys="WithdrawalRequest.user_id",
-        lazy="dynamic",
+    )
+    
+    resolved_requests: Mapped[List["WithdrawalRequest"]] = relationship(
+        "WithdrawalRequest",
+        back_populates="resolver",
+        foreign_keys="WithdrawalRequest.resolved_by",
     )
 
     def set_password(self, password):
@@ -42,19 +55,25 @@ class User(UserMixin, db.Model):
             "is_admin": self.is_admin,
             "monthly_allowance": self.monthly_allowance,
             "starting_balance": self.starting_balance,
-            "allowance_start_date": self.allowance_start_date.isoformat() if self.allowance_start_date else None,
+            "allowance_start_date": self.allowance_start_date.isoformat()
+            if self.allowance_start_date
+            else None,
         }
 
 
 class Transaction(db.Model):
     __tablename__ = "transactions"
 
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
-    type = db.Column(db.String(20), nullable=False)
-    amount = db.Column(db.Float, nullable=False)
-    description = db.Column(db.String(256), default="")
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False)
+    type: Mapped[str] = mapped_column(String(20), nullable=False)
+    amount: Mapped[float] = mapped_column(Float, nullable=False)
+    description: Mapped[str] = mapped_column(String(256), default="")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, nullable=False
+    )
+
+    user: Mapped["User"] = relationship("User", back_populates="transactions")
 
     def to_dict(self):
         return {
@@ -70,17 +89,25 @@ class Transaction(db.Model):
 class WithdrawalRequest(db.Model):
     __tablename__ = "withdrawal_requests"
 
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
-    amount = db.Column(db.Float, nullable=False)
-    reason = db.Column(db.String(256), default="")
-    status = db.Column(db.String(20), default="pending", nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
-    resolved_at = db.Column(db.DateTime, nullable=True)
-    resolved_by = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False)
+    amount: Mapped[float] = mapped_column(Float, nullable=False)
+    reason: Mapped[str] = mapped_column(String(256), default="")
+    status: Mapped[str] = mapped_column(String(20), default="pending", nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, nullable=False
+    )
+    resolved_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    resolved_by: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("users.id"), nullable=True
+    )
 
-    resolver = db.relationship(
-        "User", foreign_keys=[resolved_by], backref="resolved_requests"
+    user: Mapped["User"] = relationship(
+        "User", back_populates="withdrawal_requests", foreign_keys=[user_id]
+    )
+
+    resolver: Mapped[Optional["User"]] = relationship(
+        "User", back_populates="resolved_requests", foreign_keys=[resolved_by]
     )
 
     def to_dict(self):
