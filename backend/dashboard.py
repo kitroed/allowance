@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 
-from flask import Blueprint, jsonify
+from flask import Blueprint
 from flask_login import current_user, login_required
 
 from catchup import annotate_running_balance, get_balance, run_catchup
@@ -50,12 +50,10 @@ def dashboard():
                 labels.append(day_label)
                 balances.append(round(running, 2))
 
-    return jsonify(
-        {
-            "balance": balance,
-            "recent_transactions": annotate_running_balance(
-                current_user, list(reversed(recent))
-            )[::-1],
-            "chart_data": {"labels": labels, "balances": balances},
-        }
-    )
+    return {
+        "balance": balance,
+        "recent_transactions": annotate_running_balance(
+            current_user, list(reversed(recent))
+        )[::-1],
+        "chart_data": {"labels": labels, "balances": balances},
+    }

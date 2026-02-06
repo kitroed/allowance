@@ -1,7 +1,7 @@
 from datetime import date, datetime
 from functools import wraps
 
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, request
 from flask_login import current_user, login_required
 
 from catchup import get_balance, run_catchup
@@ -15,7 +15,7 @@ def admin_required(f):
     @login_required
     def decorated(*args, **kwargs):
         if not current_user.is_admin:
-            return jsonify({"error": "Forbidden"}), 403
+            return {"error": "Forbidden"}, 403
         return f(*args, **kwargs)
 
     return decorated
@@ -29,7 +29,7 @@ def list_users():
     for child in children:
         run_catchup(child)
         result.append({**child.to_dict(), "balance": get_balance(child)})
-    return jsonify(result)
+    return result
 
 
 @admin_bp.route("/api/admin/users", methods=["POST"])
@@ -37,14 +37,14 @@ def list_users():
 def create_user():
     data = request.get_json()
     if not data:
-        return jsonify({"error": "Request body required"}), 400
+        return {"error": "Request body required"}, 400
 
     for field in ("username", "password", "display_name"):
         if not data.get(field):
-            return jsonify({"error": f"{field} is required"}), 400
+            return {"error": f"{field} is required"}, 400
 
     if User.query.filter_by(username=data["username"]).first():
-        return jsonify({"error": "Username already exists"}), 409
+        return {"error": "Username already exists"}, 409
 
     user = User(
         username=data["username"],
@@ -58,7 +58,7 @@ def create_user():
     db.session.add(user)
     db.session.commit()
 
-    return jsonify(user.to_dict()), 201
+    return user.to_dict(), 201
 
 
 @admin_bp.route("/api/admin/users/<int:user_id>", methods=["PUT"])
@@ -66,11 +66,11 @@ def create_user():
 def update_user(user_id):
     user = db.session.get(User, user_id)
     if not user or user.is_admin:
-        return jsonify({"error": "User not found"}), 404
+        return {"error": "User not found"}, 404
 
     data = request.get_json()
     if not data:
-        return jsonify({"error": "Request body required"}), 400
+        return {"error": "Request body required"}, 400
 
     if "display_name" in data:
         user.display_name = data["display_name"]
@@ -84,7 +84,7 @@ def update_user(user_id):
         user.set_password(data["password"])
 
     db.session.commit()
-    return jsonify(user.to_dict())
+    return user.to_dict()
 
 
 @admin_bp.route("/api/admin/requests")
@@ -102,7 +102,7 @@ def list_requests():
         result.append(
             {**wr.to_dict(), "child_name": child.display_name if child else "Unknown"}
         )
-    return jsonify(result)
+    return result
 
 
 @admin_bp.route("/api/admin/requests/<int:request_id>", methods=["PUT"])
@@ -110,13 +110,13 @@ def list_requests():
 def resolve_request(request_id):
     wr = db.session.get(WithdrawalRequest, request_id)
     if not wr:
-        return jsonify({"error": "Request not found"}), 404
+        return {"error": "Request not found"}, 404
     if wr.status != "pending":
-        return jsonify({"error": "Request already resolved"}), 400
+        return {"error": "Request already resolved"}, 400
 
     data = request.get_json()
     if not data or data.get("status") not in ("approved", "denied"):
-        return jsonify({"error": "status must be 'approved' or 'denied'"}), 400
+        return {"error": "status must be 'approved' or 'denied'"}, 400
 
     wr.status = data["status"]
     wr.resolved_at = datetime.utcnow()
@@ -132,7 +132,7 @@ def resolve_request(request_id):
         db.session.add(txn)
 
     db.session.commit()
-    return jsonify(wr.to_dict())
+    return wr.to_dict()
 
 
 @admin_bp.route("/api/admin/users/<int:user_id>/adjust", methods=["POST"])
@@ -140,19 +140,19 @@ def resolve_request(request_id):
 def adjust_balance(user_id):
     user = db.session.get(User, user_id)
     if not user or user.is_admin:
-        return jsonify({"error": "User not found"}), 404
+        return {"error": "User not found"}, 404
 
     data = request.get_json()
     if not data or "amount" not in data:
-        return jsonify({"error": "Amount is required"}), 400
+        return {"error": "Amount is required"}, 400
 
     try:
         amount = float(data["amount"])
     except ValueError:
-        return jsonify({"error": "Invalid amount"}), 400
+        return {"error": "Invalid amount"}, 400
 
     if amount == 0:
-        return jsonify({"error": "Amount cannot be zero"}), 400
+        return {"error": "Amount cannot be zero"}, 400
 
     description = data.get("description", "Manual adjustment")
 
@@ -165,4 +165,4 @@ def adjust_balance(user_id):
     db.session.add(txn)
     db.session.commit()
 
-    return jsonify({"balance": get_balance(user)}), 200
+    return {"balance": get_balance(user)}, 200

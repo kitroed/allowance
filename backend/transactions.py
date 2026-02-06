@@ -1,4 +1,4 @@
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, request
 from flask_login import current_user, login_required
 
 from catchup import annotate_running_balance, run_catchup
@@ -28,11 +28,9 @@ def list_transactions():
     annotated = annotate_running_balance(current_user, items)
     annotated.reverse()
 
-    return jsonify(
-        {
-            "transactions": annotated,
-            "total": pagination.total,
-            "page": pagination.page,
-            "pages": pagination.pages,
-        }
-    )
+    return {
+        "transactions": annotated,
+        "total": pagination.total,
+        "page": pagination.page,
+        "pages": pagination.pages,
+    }

@@ -1,4 +1,4 @@
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, request
 from flask_login import current_user, login_required
 
 from models import WithdrawalRequest, db
@@ -12,11 +12,11 @@ withdrawals_bp = Blueprint("withdrawals", __name__)
 def create_withdrawal():
     data = request.get_json()
     if not data or not data.get("amount"):
-        return jsonify({"error": "Amount is required"}), 400
+        return {"error": "Amount is required"}, 400
 
     amount = float(data["amount"])
     if amount <= 0:
-        return jsonify({"error": "Amount must be positive"}), 400
+        return {"error": "Amount must be positive"}, 400
 
     wr = WithdrawalRequest(
         user_id=current_user.id,
@@ -31,7 +31,7 @@ def create_withdrawal():
         f"{current_user.display_name} requested ${wr.amount:.2f}: {wr.reason}",
     )
 
-    return jsonify(wr.to_dict()), 201
+    return wr.to_dict(), 201
 
 
 @withdrawals_bp.route("/api/withdrawals")
@@ -42,4 +42,4 @@ def list_withdrawals():
         .order_by(WithdrawalRequest.created_at.desc())
         .all()
     )
-    return jsonify([r.to_dict() for r in requests_list])
+    return [r.to_dict() for r in requests_list]
