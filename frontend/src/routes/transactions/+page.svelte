@@ -85,8 +85,8 @@
 					<tr>
 						<td>{formatDate(txn.created_at)}</td>
 						<td><span class="badge badge-{txn.type}">{txn.type}</span></td>
-						<td class={txn.type === 'withdrawal' || txn.type === 'penalty' ? 'balance-negative' : 'balance-positive'}>
-							{txn.type === 'withdrawal' || txn.type === 'penalty' ? '-' : '+'}{formatCurrency(txn.amount)}
+						<td class={(txn.type === 'withdrawal' || txn.type === 'penalty' || txn.amount < 0) ? 'balance-negative' : 'balance-positive'}>
+							{(txn.type === 'withdrawal' || txn.type === 'penalty' || txn.amount < 0) ? '-' : '+'}{formatCurrency(Math.abs(txn.amount))}
 						</td>
 						<td>{txn.description}</td>
 						<td class={txn.balance_after >= 0 ? 'balance-positive' : 'balance-negative'}>
