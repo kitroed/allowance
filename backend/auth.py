@@ -1,7 +1,7 @@
 from flask import Blueprint, request
 from flask_login import current_user, login_required, login_user, logout_user
 
-from models import User
+from models import User, db
 
 auth_bp = Blueprint("auth", __name__)
 
@@ -12,7 +12,7 @@ def login():
     if not data or not data.get("username") or not data.get("password"):
         return {"error": "Username and password required"}, 400
 
-    user = User.query.filter_by(username=data["username"]).first()
+    user = db.session.execute(db.select(User).filter_by(username=data["username"])).scalars().first()
     if not user or not user.check_password(data["password"]):
         return {"error": "Invalid username or password"}, 401
 

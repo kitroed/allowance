@@ -13,7 +13,9 @@ from models import User, db
 )
 def seed_command(admin_username, admin_password):
     """Create the admin account if it doesn't exist."""
-    existing = User.query.filter_by(username=admin_username).first()
+    existing = db.session.execute(
+        db.select(User).filter_by(username=admin_username)
+    ).scalars().first()
     if existing:
         click.echo(f"User '{admin_username}' already exists. Skipping.")
         return

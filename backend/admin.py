@@ -24,7 +24,9 @@ def admin_required(f):
 @admin_bp.route("/api/admin/users")
 @admin_required
 def list_users():
-    children = User.query.filter_by(is_admin=False).all()
+    children = db.session.execute(
+        db.select(User).filter_by(is_admin=False)
+    ).scalars().all()
     result = []
     for child in children:
         run_catchup(child)
@@ -43,7 +45,9 @@ def create_user():
         if not data.get(field):
             return {"error": f"{field} is required"}, 400
 
-    if User.query.filter_by(username=data["username"]).first():
+    if db.session.execute(
+        db.select(User).filter_by(username=data["username"])
+    ).scalars().first():
         return {"error": "Username already exists"}, 409
 
     user = User(
@@ -91,10 +95,12 @@ def update_user(user_id):
 @admin_required
 def list_requests():
     status_filter = request.args.get("status", "pending")
-    query = WithdrawalRequest.query
+    stmt = db.select(WithdrawalRequest)
     if status_filter != "all":
-        query = query.filter_by(status=status_filter)
-    requests_list = query.order_by(WithdrawalRequest.created_at.desc()).all()
+        stmt = stmt.filter_by(status=status_filter)
+    requests_list = db.session.execute(
+        stmt.order_by(WithdrawalRequest.created_at.desc())
+    ).scalars().all()
 
     result = []
     for wr in requests_list:

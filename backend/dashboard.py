@@ -4,7 +4,7 @@ from flask import Blueprint
 from flask_login import current_user, login_required
 
 from catchup import annotate_running_balance, get_balance, run_catchup
-from models import Transaction
+from models import Transaction, db
 
 dashboard_bp = Blueprint("dashboard", __name__)
 
@@ -16,20 +16,20 @@ def dashboard():
 
     balance = get_balance(current_user)
 
-    recent = (
-        Transaction.query.filter_by(user_id=current_user.id)
+    recent = db.session.execute(
+        db.select(Transaction)
+        .filter_by(user_id=current_user.id)
         .order_by(Transaction.created_at.desc())
         .limit(10)
-        .all()
-    )
+    ).scalars().all()
 
     # Chart data: daily balance for the last 90 days
     ninety_days_ago = datetime.utcnow() - timedelta(days=90)
-    all_txns = (
-        Transaction.query.filter_by(user_id=current_user.id)
+    all_txns = db.session.execute(
+        db.select(Transaction)
+        .filter_by(user_id=current_user.id)
         .order_by(Transaction.created_at.asc())
-        .all()
-    )
+    ).scalars().all()
 
     # Build running balance series
     labels = []

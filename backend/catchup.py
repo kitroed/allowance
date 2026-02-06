@@ -11,11 +11,11 @@ def run_catchup(user):
     if user.monthly_allowance <= 0:
         return
 
-    last_income = (
-        Transaction.query.filter_by(user_id=user.id, type="income")
+    last_income = db.session.execute(
+        db.select(Transaction)
+        .filter_by(user_id=user.id, type="income")
         .order_by(Transaction.created_at.desc())
-        .first()
-    )
+    ).scalars().first()
 
     if last_income:
         start_date = last_income.created_at.date() + timedelta(days=1)
@@ -24,9 +24,11 @@ def run_catchup(user):
 
         # Insert starting balance adjustment on first catchup
         if user.starting_balance != 0:
-            existing_adj = Transaction.query.filter_by(
-                user_id=user.id, type="adjustment"
-            ).first()
+            existing_adj = db.session.execute(
+                db.select(Transaction).filter_by(
+                    user_id=user.id, type="adjustment"
+                )
+            ).scalars().first()
             if not existing_adj:
                 db.session.add(
                     Transaction(
@@ -72,8 +74,9 @@ def run_catchup(user):
 def _apply_monthly_interest(user, month_end_date):
     """Apply savings interest or penalty interest for a completed month."""
     month_start = month_end_date.replace(day=1)
-    existing = (
-        Transaction.query.filter_by(user_id=user.id)
+    existing = db.session.execute(
+        db.select(Transaction)
+        .filter_by(user_id=user.id)
         .filter(Transaction.type.in_(["interest", "penalty"]))
         .filter(
             Transaction.created_at
@@ -85,8 +88,7 @@ def _apply_monthly_interest(user, month_end_date):
                 month_end_date.year, month_end_date.month, month_end_date.day, 23, 59, 59
             )
         )
-        .first()
-    )
+    ).scalars().first()
     if existing:
         return
 
@@ -145,21 +147,21 @@ def _apply_monthly_interest(user, month_end_date):
 
 def get_balance(user, as_of=None):
     """Calculate user's balance from transaction history."""
-    query = Transaction.query.filter_by(user_id=user.id)
+    filters = [Transaction.user_id == user.id]
     if as_of:
-        query = query.filter(Transaction.created_at <= as_of)
+        filters.append(Transaction.created_at <= as_of)
 
-    credits = (
-        query.filter(Transaction.type.in_(["income", "interest", "adjustment"]))
-        .with_entities(db.func.coalesce(db.func.sum(Transaction.amount), 0))
-        .scalar()
-    )
+    credits = db.session.execute(
+        db.select(db.func.coalesce(db.func.sum(Transaction.amount), 0))
+        .filter(*filters)
+        .filter(Transaction.type.in_(["income", "interest", "adjustment"]))
+    ).scalar()
 
-    debits = (
-        query.filter(Transaction.type.in_(["withdrawal", "penalty"]))
-        .with_entities(db.func.coalesce(db.func.sum(Transaction.amount), 0))
-        .scalar()
-    )
+    debits = db.session.execute(
+        db.select(db.func.coalesce(db.func.sum(Transaction.amount), 0))
+        .filter(*filters)
+        .filter(Transaction.type.in_(["withdrawal", "penalty"]))
+    ).scalar()
 
     return round(credits - debits, 2)
 
@@ -202,12 +204,15 @@ def annotate_running_balance(user, transactions):
 
 def _balance_before(user, txn):
     """Calculate balance just before a given transaction."""
-    query = Transaction.query.filter_by(user_id=user.id).filter(
-        Transaction.created_at < txn.created_at
+    # Query 1: strictly earlier timestamp
+    q1 = db.select(db.func.coalesce(db.func.sum(Transaction.amount), 0)).filter(
+        Transaction.user_id == user.id,
+        Transaction.created_at < txn.created_at,
     )
 
-    # Handle transactions at the exact same timestamp
-    same_time = Transaction.query.filter_by(user_id=user.id).filter(
+    # Query 2: same timestamp, earlier ID
+    q2 = db.select(db.func.coalesce(db.func.sum(Transaction.amount), 0)).filter(
+        Transaction.user_id == user.id,
         Transaction.created_at == txn.created_at,
         Transaction.id < txn.id,
     )
@@ -215,17 +220,13 @@ def _balance_before(user, txn):
     credits = 0.0
     debits = 0.0
 
-    for q in (query, same_time):
-        credits += (
-            q.filter(Transaction.type.in_(CREDIT_TYPES))
-            .with_entities(db.func.coalesce(db.func.sum(Transaction.amount), 0))
-            .scalar()
-        )
-        debits += (
-            q.filter(Transaction.type.in_(DEBIT_TYPES))
-            .with_entities(db.func.coalesce(db.func.sum(Transaction.amount), 0))
-            .scalar()
-        )
+    for base_q in (q1, q2):
+        credits += db.session.execute(
+            base_q.filter(Transaction.type.in_(CREDIT_TYPES))
+        ).scalar()
+        debits += db.session.execute(
+            base_q.filter(Transaction.type.in_(DEBIT_TYPES))
+        ).scalar()
 
     return round(credits - debits, 2)
 

@@ -37,9 +37,9 @@ def create_withdrawal():
 @withdrawals_bp.route("/api/withdrawals")
 @login_required
 def list_withdrawals():
-    requests_list = (
-        WithdrawalRequest.query.filter_by(user_id=current_user.id)
+    requests_list = db.session.execute(
+        db.select(WithdrawalRequest)
+        .filter_by(user_id=current_user.id)
         .order_by(WithdrawalRequest.created_at.desc())
-        .all()
-    )
+    ).scalars().all()
     return [r.to_dict() for r in requests_list]
