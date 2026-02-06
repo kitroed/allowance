@@ -1,5 +1,5 @@
 <script>
-	import { onMount } from 'svelte';
+	import { onMount, tick } from 'svelte';
 	import { Chart, registerables } from 'chart.js';
 	import { get } from '$lib/api.js';
 	import { formatCurrency, formatDate } from '$lib/utils.js';
@@ -18,7 +18,9 @@
 			balance = data.balance;
 			recentTransactions = data.recent_transactions;
 
-			if (canvas && data.chart_data.labels.length > 0) {
+			await tick();
+
+			if (canvas && data.chart_data && data.chart_data.labels && data.chart_data.labels.length > 0) {
 				chart = new Chart(canvas, {
 					type: 'line',
 					data: {
