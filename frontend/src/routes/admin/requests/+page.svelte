@@ -7,11 +7,18 @@
 	let loading = true;
 	let filter = 'pending';
 	let processingId = null;
+	let actionError = '';
+	let adjustedAmounts = {};
 
 	async function loadRequests() {
 		loading = true;
+		actionError = '';
 		try {
 			requests = await get(`/api/admin/requests?status=${filter}`);
+			adjustedAmounts = requests.reduce((acc, req) => {
+				acc[req.id] = req.amount;
+				return acc;
+			}, {});
 		} catch (err) {
 			console.error('Failed to load requests:', err);
 		} finally {
@@ -21,10 +28,23 @@
 
 	async function resolve(id, status) {
 		processingId = id;
+		actionError = '';
 		try {
-			await put(`/api/admin/requests/${id}`, { status });
+			const payload = { status };
+			if (status === 'approved') {
+				const rawAmount = adjustedAmounts[id];
+				const amount = parseFloat(rawAmount);
+				if (Number.isNaN(amount) || amount <= 0) {
+					actionError = 'Enter a valid amount greater than 0 before approving.';
+					return;
+				}
+				payload.amount = amount;
+			}
+
+			await put(`/api/admin/requests/${id}`, payload);
 			loadRequests();
 		} catch (err) {
+			actionError = err.message || 'Failed to resolve request.';
 			console.error('Failed to resolve request:', err);
 		} finally {
 			processingId = null;
@@ -57,6 +77,9 @@
 {:else if requests.length === 0}
 	<p>No {filter === 'all' ? '' : filter} requests.</p>
 {:else}
+	{#if actionError}
+		<p style="color: red;">{actionError}</p>
+	{/if}
 	<figure>
 		<table>
 			<thead>
@@ -76,7 +99,20 @@
 					<tr>
 						<td>{formatDate(req.created_at)}</td>
 						<td>{req.child_name}</td>
-						<td>{formatCurrency(req.amount)}</td>
+						<td>
+							{#if filter === 'pending' && req.status === 'pending'}
+								<input
+									type="number"
+									step="0.01"
+									min="0.01"
+									bind:value={adjustedAmounts[req.id]}
+									aria-label="Adjusted amount"
+									style="max-width: 8rem;"
+								/>
+							{:else}
+								{formatCurrency(req.amount)}
+							{/if}
+						</td>
 						<td>{req.reason || '-'}</td>
 						<td><span class="badge badge-{req.status}">{req.status}</span></td>
 						{#if filter === 'pending'}

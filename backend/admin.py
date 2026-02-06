@@ -129,6 +129,16 @@ def resolve_request(request_id):
     wr.resolved_by = current_user.id
 
     if data["status"] == "approved":
+        amount = data.get("amount", wr.amount)
+        try:
+            amount = float(amount)
+        except (TypeError, ValueError):
+            return {"error": "Invalid amount"}, 400
+
+        if amount <= 0:
+            return {"error": "Amount must be positive"}, 400
+
+        wr.amount = round(amount, 2)
         txn = Transaction(
             user_id=wr.user_id,
             type="withdrawal",
