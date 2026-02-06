@@ -1,0 +1,8 @@
+data/
+node_modules/
+frontend/build/
+frontend/.svelte-kit/
+__pycache__/
+*.pyc
+.env
+*.db

@@ -1,0 +1,16 @@
+services:
+  allowance:
+    build: .
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./data:/data
+    environment:
+      - SECRET_KEY=change-this-to-a-random-string
+      - ADMIN_USERNAME=parent
+      - ADMIN_PASSWORD=changeme
+      - SAVINGS_INTEREST_RATE=0.05
+      - CREDIT_INTEREST_RATE=0.24
+      - NTFY_SERVER=
+      - NTFY_TOPIC=allowance
+    restart: unless-stopped

@@ -1,0 +1,81 @@
+@import '@picocss/pico';
+
+:root {
+	--pico-font-size: 100%;
+}
+
+.balance-positive {
+	color: green;
+}
+
+.balance-negative {
+	color: red;
+}
+
+.badge {
+	display: inline-block;
+	padding: 0.15em 0.5em;
+	border-radius: 4px;
+	font-size: 0.8em;
+	font-weight: 600;
+	text-transform: capitalize;
+}
+
+.badge-income {
+	background: #d4edda;
+	color: #155724;
+}
+
+.badge-interest {
+	background: #cce5ff;
+	color: #004085;
+}
+
+.badge-withdrawal {
+	background: #fff3cd;
+	color: #856404;
+}
+
+.badge-penalty {
+	background: #f8d7da;
+	color: #721c24;
+}
+
+.badge-adjustment {
+	background: #e2e3f1;
+	color: #383d6e;
+}
+
+.badge-pending {
+	background: #fff3cd;
+	color: #856404;
+}
+
+.badge-approved {
+	background: #d4edda;
+	color: #155724;
+}
+
+.badge-denied {
+	background: #f8d7da;
+	color: #721c24;
+}
+
+.text-center {
+	text-align: center;
+}
+
+.balance-display {
+	font-size: 2.5rem;
+	font-weight: 700;
+	margin: 0.5rem 0;
+}
+
+.button-group {
+	display: flex;
+	gap: 0.5rem;
+}
+
+.button-group button {
+	margin: 0;
+}
