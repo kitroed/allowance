@@ -1,5 +1,6 @@
 services:
   allowance:
+    container_name: allowance
     build: .
     ports:
       - "5000:5000"
@@ -13,4 +14,10 @@ services:
       - CREDIT_INTEREST_RATE=0.24
       - NTFY_SERVER=
       - NTFY_TOPIC=allowance
+      # Force DB to be in the mapped volume
+      - DATABASE_URL=sqlite:////data/allowance.db
     restart: unless-stopped
+
+# networks:
+#   npm_public:
+#     external: true
