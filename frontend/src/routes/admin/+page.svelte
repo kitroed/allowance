@@ -27,6 +27,13 @@
 	let editError = '';
 	let editSubmitting = false;
 
+	// Adjust balance
+	let adjustingId = null;
+	let adjustmentAmount = '';
+	let adjustmentDescription = '';
+	let adjustmentError = '';
+	let adjustmentSubmitting = false;
+
 	async function loadChildren() {
 		try {
 			children = await get('/api/admin/users');
@@ -98,6 +105,36 @@
 			editError = err.message || 'Failed to update';
 		} finally {
 			editSubmitting = false;
+		}
+	}
+
+	function startAdjust(child) {
+		adjustingId = child.id;
+		adjustmentAmount = '';
+		adjustmentDescription = '';
+		adjustmentError = '';
+		if (editingId) cancelEdit();
+	}
+
+	function cancelAdjust() {
+		adjustingId = null;
+	}
+
+	async function saveAdjust(e) {
+		e.preventDefault();
+		adjustmentError = '';
+		adjustmentSubmitting = true;
+		try {
+			await post(`/api/admin/users/${adjustingId}/adjust`, {
+				amount: parseFloat(adjustmentAmount),
+				description: adjustmentDescription
+			});
+			adjustingId = null;
+			loadChildren();
+		} catch (err) {
+			adjustmentError = err.message || 'Failed to adjust balance';
+		} finally {
+			adjustmentSubmitting = false;
 		}
 	}
 
@@ -210,6 +247,31 @@
 								</form>
 							</td>
 						</tr>
+					{:else if adjustingId === child.id}
+						<tr>
+							<td colspan="5">
+								<form onsubmit={saveAdjust} style="margin: 0;">
+									<strong>Adjust Balance for {child.display_name}</strong>
+									<div class="grid">
+										<label>
+											Amount ($) (negative to deduct)
+											<input type="number" step="0.01" bind:value={adjustmentAmount} required />
+										</label>
+										<label>
+											Description
+											<input type="text" bind:value={adjustmentDescription} placeholder="Reason..." required />
+										</label>
+									</div>
+									{#if adjustmentError}
+										<p style="color: red;">{adjustmentError}</p>
+									{/if}
+									<div class="button-group">
+										<button type="submit" aria-busy={adjustmentSubmitting} disabled={adjustmentSubmitting}>Apply</button>
+										<button type="button" class="outline" onclick={cancelAdjust}>Cancel</button>
+									</div>
+								</form>
+							</td>
+						</tr>
 					{:else}
 						<tr>
 							<td>{child.display_name}</td>
@@ -220,6 +282,7 @@
 							</td>
 							<td>
 								<button class="outline" onclick={() => startEdit(child)}>Edit</button>
+								<button class="outline" onclick={() => startAdjust(child)}>Adjust</button>
 							</td>
 						</tr>
 					{/if}

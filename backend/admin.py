@@ -133,3 +133,36 @@ def resolve_request(request_id):
 
     db.session.commit()
     return jsonify(wr.to_dict())
+
+
+@admin_bp.route("/api/admin/users/<int:user_id>/adjust", methods=["POST"])
+@admin_required
+def adjust_balance(user_id):
+    user = db.session.get(User, user_id)
+    if not user or user.is_admin:
+        return jsonify({"error": "User not found"}), 404
+
+    data = request.get_json()
+    if not data or "amount" not in data:
+        return jsonify({"error": "Amount is required"}), 400
+
+    try:
+        amount = float(data["amount"])
+    except ValueError:
+        return jsonify({"error": "Invalid amount"}), 400
+
+    if amount == 0:
+        return jsonify({"error": "Amount cannot be zero"}), 400
+
+    description = data.get("description", "Manual adjustment")
+
+    txn = Transaction(
+        user_id=user.id,
+        type="adjustment",
+        amount=amount,
+        description=description,
+    )
+    db.session.add(txn)
+    db.session.commit()
+
+    return jsonify({"balance": get_balance(user)}), 200
