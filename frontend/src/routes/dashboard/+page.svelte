@@ -11,46 +11,14 @@
 	let loading = true;
 	let canvas;
 	let chart;
+	let chartData;
 
 	onMount(async () => {
 		try {
 			const data = await get('/api/dashboard');
 			balance = data.balance;
 			recentTransactions = data.recent_transactions;
-
-			await tick();
-
-			if (canvas && data.chart_data && data.chart_data.labels && data.chart_data.labels.length > 0) {
-				chart = new Chart(canvas, {
-					type: 'line',
-					data: {
-						labels: data.chart_data.labels,
-						datasets: [
-							{
-								label: 'Balance',
-								data: data.chart_data.balances,
-								borderColor: balance >= 0 ? '#43a047' : '#e53935',
-								backgroundColor: balance >= 0 ? 'rgba(67,160,71,0.1)' : 'rgba(229,57,53,0.1)',
-								fill: true,
-								tension: 0.3
-							}
-						]
-					},
-					options: {
-						responsive: true,
-						plugins: {
-							legend: { display: false }
-						},
-						scales: {
-							y: {
-								ticks: {
-									callback: (v) => '$' + v.toFixed(2)
-								}
-							}
-						}
-					}
-				});
-			}
+			chartData = data.chart_data;
 		} catch (err) {
 			console.error('Dashboard load failed:', err);
 		} finally {
@@ -61,6 +29,40 @@
 			if (chart) chart.destroy();
 		};
 	});
+
+	$: if (canvas && chartData && chartData.labels && chartData.labels.length > 0) {
+		if (chart) chart.destroy();
+
+		chart = new Chart(canvas, {
+			type: 'line',
+			data: {
+				labels: chartData.labels,
+				datasets: [
+					{
+						label: 'Balance',
+						data: chartData.balances,
+						borderColor: balance >= 0 ? '#43a047' : '#e53935',
+						backgroundColor: balance >= 0 ? 'rgba(67,160,71,0.1)' : 'rgba(229,57,53,0.1)',
+						fill: true,
+						tension: 0.3
+					}
+				]
+			},
+			options: {
+				responsive: true,
+				plugins: {
+					legend: { display: false }
+				},
+				scales: {
+					y: {
+						ticks: {
+							callback: (v) => '$' + v.toFixed(2)
+						}
+					}
+				}
+			}
+		});
+	}
 </script>
 
 <h2>Dashboard</h2>
