@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from flask import Blueprint
 from flask_login import current_user, login_required
@@ -24,7 +24,7 @@ def dashboard():
     ).scalars().all()
 
     # Chart data: daily balance for the last 90 days
-    ninety_days_ago = datetime.utcnow() - timedelta(days=90)
+    ninety_days_ago = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=90)
     all_txns = db.session.execute(
         db.select(Transaction)
         .filter_by(user_id=current_user.id)
@@ -35,13 +35,27 @@ def dashboard():
     labels = []
     balances = []
     running = 0.0
-    for txn in all_txns:
-        if txn.type in ("income", "interest", "adjustment"):
-            running += txn.amount
-        else:
-            running -= txn.amount
 
-        if txn.created_at >= ninety_days_ago:
+    start_date_str = ninety_days_ago.strftime("%Y-%m-%d")
+    start_point_added = False
+
+    for txn in all_txns:
+        delta = 0
+        if txn.type in ("income", "interest", "adjustment"):
+            delta = txn.amount
+        else:
+            delta = -txn.amount
+
+        if txn.created_at < ninety_days_ago:
+            running += delta
+        else:
+            if not start_point_added:
+                labels.append(start_date_str)
+                balances.append(round(running, 2))
+                start_point_added = True
+
+            running += delta
+
             day_label = txn.created_at.strftime("%Y-%m-%d")
             # Collapse multiple transactions on the same day to the last one
             if labels and labels[-1] == day_label:
@@ -49,6 +63,15 @@ def dashboard():
             else:
                 labels.append(day_label)
                 balances.append(round(running, 2))
+
+    if not start_point_added:
+        labels.append(start_date_str)
+        balances.append(round(running, 2))
+
+    today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    if labels and labels[-1] != today_str:
+        labels.append(today_str)
+        balances.append(balances[-1])
 
     return {
         "balance": balance,
