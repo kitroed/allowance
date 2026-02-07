@@ -1,5 +1,5 @@
 <script>
-  import { onMount, tick } from 'svelte';
+  import { onMount } from 'svelte';
   import { Chart, registerables } from 'chart.js';
   import { get } from '$lib/api.js';
   import { formatCurrency, formatDate } from '$lib/utils.js';
