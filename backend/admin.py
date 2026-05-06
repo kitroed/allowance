@@ -1,11 +1,11 @@
-from datetime import date, datetime
+from datetime import date
 from functools import wraps
 
 from flask import Blueprint, request
 from flask_login import current_user, login_required
 
 from catchup import get_balance, run_catchup
-from models import Transaction, User, WithdrawalRequest, db
+from models import Transaction, User, WithdrawalRequest, db, utcnow
 
 admin_bp = Blueprint("admin", __name__)
 
@@ -125,7 +125,7 @@ def resolve_request(request_id):
         return {"error": "status must be 'approved' or 'denied'"}, 400
 
     wr.status = data["status"]
-    wr.resolved_at = datetime.utcnow()
+    wr.resolved_at = utcnow()
     wr.resolved_by = current_user.id
 
     if data["status"] == "approved":

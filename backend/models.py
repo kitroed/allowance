@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 
 from flask_login import UserMixin
 from flask_sqlalchemy import SQLAlchemy
@@ -9,6 +9,11 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from werkzeug.security import check_password_hash, generate_password_hash
 
 db = SQLAlchemy()
+
+
+def utcnow() -> datetime:
+    """Current UTC time as a naive datetime (matches our DateTime columns)."""
+    return datetime.now(UTC).replace(tzinfo=None)
 
 
 class User(UserMixin, db.Model):
@@ -23,7 +28,7 @@ class User(UserMixin, db.Model):
     starting_balance: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
     allowance_start_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime, default=datetime.utcnow, nullable=False
+        DateTime, default=utcnow, nullable=False
     )
 
     transactions: Mapped[list[Transaction]] = relationship(
@@ -71,7 +76,7 @@ class Transaction(db.Model):
     amount: Mapped[float] = mapped_column(Float, nullable=False)
     description: Mapped[str] = mapped_column(String(256), default="")
     created_at: Mapped[datetime] = mapped_column(
-        DateTime, default=datetime.utcnow, nullable=False
+        DateTime, default=utcnow, nullable=False
     )
 
     user: Mapped[User] = relationship("User", back_populates="transactions")
@@ -96,7 +101,7 @@ class WithdrawalRequest(db.Model):
     reason: Mapped[str] = mapped_column(String(256), default="")
     status: Mapped[str] = mapped_column(String(20), default="pending", nullable=False)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime, default=datetime.utcnow, nullable=False
+        DateTime, default=utcnow, nullable=False
     )
     resolved_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     resolved_by: Mapped[int | None] = mapped_column(

@@ -1,10 +1,10 @@
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from flask import Blueprint
 from flask_login import current_user, login_required
 
 from catchup import annotate_running_balance, get_balance, run_catchup
-from models import Transaction, db
+from models import Transaction, db, utcnow
 
 dashboard_bp = Blueprint("dashboard", __name__)
 
@@ -24,7 +24,7 @@ def dashboard():
     ).scalars().all()
 
     # Chart data: daily balance for the last 90 days
-    ninety_days_ago = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=90)
+    ninety_days_ago = utcnow() - timedelta(days=90)
     all_txns = db.session.execute(
         db.select(Transaction)
         .filter_by(user_id=current_user.id)
@@ -68,7 +68,7 @@ def dashboard():
         labels.append(start_date_str)
         balances.append(round(running, 2))
 
-    today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    today_str = datetime.now(UTC).strftime("%Y-%m-%d")
     if labels and labels[-1] != today_str:
         labels.append(today_str)
         balances.append(balances[-1])
