@@ -1,5 +1,6 @@
+from __future__ import annotations
+
 from datetime import date, datetime
-from typing import List, Optional
 
 from flask_login import UserMixin
 from flask_sqlalchemy import SQLAlchemy
@@ -20,22 +21,22 @@ class User(UserMixin, db.Model):
     is_admin: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     monthly_allowance: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
     starting_balance: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
-    allowance_start_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
+    allowance_start_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime, default=datetime.utcnow, nullable=False
     )
 
-    transactions: Mapped[List["Transaction"]] = relationship(
+    transactions: Mapped[list[Transaction]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
     )
-    
-    withdrawal_requests: Mapped[List["WithdrawalRequest"]] = relationship(
+
+    withdrawal_requests: Mapped[list[WithdrawalRequest]] = relationship(
         "WithdrawalRequest",
         back_populates="user",
         foreign_keys="WithdrawalRequest.user_id",
     )
-    
-    resolved_requests: Mapped[List["WithdrawalRequest"]] = relationship(
+
+    resolved_requests: Mapped[list[WithdrawalRequest]] = relationship(
         "WithdrawalRequest",
         back_populates="resolver",
         foreign_keys="WithdrawalRequest.resolved_by",
@@ -73,7 +74,7 @@ class Transaction(db.Model):
         DateTime, default=datetime.utcnow, nullable=False
     )
 
-    user: Mapped["User"] = relationship("User", back_populates="transactions")
+    user: Mapped[User] = relationship("User", back_populates="transactions")
 
     def to_dict(self):
         return {
@@ -97,16 +98,16 @@ class WithdrawalRequest(db.Model):
     created_at: Mapped[datetime] = mapped_column(
         DateTime, default=datetime.utcnow, nullable=False
     )
-    resolved_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
-    resolved_by: Mapped[Optional[int]] = mapped_column(
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    resolved_by: Mapped[int | None] = mapped_column(
         Integer, ForeignKey("users.id"), nullable=True
     )
 
-    user: Mapped["User"] = relationship(
+    user: Mapped[User] = relationship(
         "User", back_populates="withdrawal_requests", foreign_keys=[user_id]
     )
 
-    resolver: Mapped[Optional["User"]] = relationship(
+    resolver: Mapped[User | None] = relationship(
         "User", back_populates="resolved_requests", foreign_keys=[resolved_by]
     )
 
