@@ -1,4 +1,4 @@
-from datetime import UTC, datetime, timedelta
+from datetime import timedelta
 
 from flask import Blueprint
 from flask_login import current_user, login_required
@@ -24,7 +24,7 @@ def dashboard():
     ).scalars().all()
 
     # Chart data: daily balance for the last 90 days
-    ninety_days_ago = utcnow() - timedelta(days=90)
+    cutoff_date = utcnow().date() - timedelta(days=90)
     all_txns = db.session.execute(
         db.select(Transaction)
         .filter_by(user_id=current_user.id)
@@ -36,7 +36,7 @@ def dashboard():
     balances = []
     running = 0.0
 
-    start_date_str = ninety_days_ago.strftime("%Y-%m-%d")
+    start_date_str = cutoff_date.isoformat()
     start_point_added = False
 
     for txn in all_txns:
@@ -46,7 +46,8 @@ def dashboard():
         else:
             delta = -txn.amount
 
-        if txn.created_at < ninety_days_ago:
+        txn_date = txn.created_at.date()
+        if txn_date < cutoff_date:
             running += delta
         else:
             if not start_point_added:
@@ -56,7 +57,7 @@ def dashboard():
 
             running += delta
 
-            day_label = txn.created_at.strftime("%Y-%m-%d")
+            day_label = txn_date.isoformat()
             # Collapse multiple transactions on the same day to the last one
             if labels and labels[-1] == day_label:
                 balances[-1] = round(running, 2)
@@ -68,7 +69,7 @@ def dashboard():
         labels.append(start_date_str)
         balances.append(round(running, 2))
 
-    today_str = datetime.now(UTC).strftime("%Y-%m-%d")
+    today_str = utcnow().date().isoformat()
     if labels and labels[-1] != today_str:
         labels.append(today_str)
         balances.append(balances[-1])

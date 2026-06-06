@@ -1,9 +1,9 @@
 import calendar
-from datetime import date, datetime, timedelta
+from datetime import datetime, timedelta
 
 from flask import current_app
 
-from models import Transaction, db
+from models import Transaction, db, utcnow
 
 
 def run_catchup(user):
@@ -43,7 +43,7 @@ def run_catchup(user):
                     )
                 )
 
-    end_date = date.today()
+    end_date = utcnow().date()
 
     if start_date > end_date:
         return
