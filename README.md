@@ -21,6 +21,7 @@ All daily income and interest calculations happen lazily on page load — no cro
 - **Dashboard**: Current balance, recent transactions with running balance, and a 90-day balance history chart
 - **Transaction history**: Paginated, filterable by type (income, withdrawal, interest, penalty, adjustment), with running balance
 - **Withdrawal requests**: Children submit requests with an optional reason; parents approve or deny
+- **Parent visibility**: Drill into any child to see lifetime earnings (income, interest, penalties, withdrawals), a balance chart, and full transaction history
 - **Starting balance**: Set an initial balance when creating a child account
 - **Backfill support**: Set an allowance start date to retroactively generate income from any past date
 - **Notifications**: Optional integration with [ntfy](https://ntfy.sh) to alert parents of new withdrawal requests
@@ -92,7 +93,7 @@ allowance/
 │   │       ├── dashboard/      # Balance, recent transactions, chart
 │   │       ├── transactions/   # Full transaction history
 │   │       ├── withdraw/       # Withdrawal request form
-│   │       └── admin/          # Manage children + approve/deny requests
+│   │       └── admin/          # Manage children, per-child detail, approve/deny requests
 │   ├── package.json
 │   ├── svelte.config.js
 │   └── vite.config.js
@@ -112,7 +113,10 @@ allowance/
 | GET | /api/withdrawals | child | List own withdrawal requests |
 | GET | /api/admin/users | admin | List children with balances |
 | POST | /api/admin/users | admin | Create child account |
+| GET | /api/admin/users/:id | admin | Child detail: balance, lifetime totals, 90-day chart |
 | PUT | /api/admin/users/:id | admin | Update child account |
+| GET | /api/admin/users/:id/transactions | admin | Paginated transactions for a child (`?page=&per_page=&type=`) |
+| POST | /api/admin/users/:id/adjust | admin | Manually adjust a child's balance |
 | GET | /api/admin/requests | admin | List withdrawal requests (`?status=pending\|all`) |
 | PUT | /api/admin/requests/:id | admin | Approve or deny a request |
 

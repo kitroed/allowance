@@ -281,6 +281,7 @@
                 {formatCurrency(child.balance)}
               </td>
               <td>
+                <a href={`/admin/children/${child.id}`} role="button" class="outline">View</a>
                 <button class="outline" onclick={() => startEdit(child)}>Edit</button>
                 <button class="outline" onclick={() => startAdjust(child)}>Adjust</button>
               </td>

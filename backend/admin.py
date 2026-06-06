@@ -4,7 +4,13 @@ from functools import wraps
 from flask import Blueprint, request
 from flask_login import current_user, login_required
 
-from catchup import get_balance, run_catchup
+from catchup import (
+    annotate_running_balance,
+    build_chart_data,
+    get_balance,
+    get_totals,
+    run_catchup,
+)
 from models import Transaction, User, WithdrawalRequest, db, utcnow
 
 admin_bp = Blueprint("admin", __name__)
@@ -89,6 +95,54 @@ def update_user(user_id):
 
     db.session.commit()
     return user.to_dict()
+
+
+@admin_bp.route("/api/admin/users/<int:user_id>")
+@admin_required
+def user_detail(user_id):
+    user = db.session.get(User, user_id)
+    if not user or user.is_admin:
+        return {"error": "User not found"}, 404
+
+    run_catchup(user)
+    return {
+        **user.to_dict(),
+        "balance": get_balance(user),
+        "totals": get_totals(user),
+        "chart_data": build_chart_data(user),
+    }
+
+
+@admin_bp.route("/api/admin/users/<int:user_id>/transactions")
+@admin_required
+def user_transactions(user_id):
+    user = db.session.get(User, user_id)
+    if not user or user.is_admin:
+        return {"error": "User not found"}, 404
+
+    run_catchup(user)
+
+    page = request.args.get("page", 1, type=int)
+    per_page = request.args.get("per_page", 20, type=int)
+    txn_type = request.args.get("type", None)
+
+    stmt = db.select(Transaction).filter_by(user_id=user.id)
+    if txn_type:
+        stmt = stmt.filter_by(type=txn_type)
+
+    stmt = stmt.order_by(Transaction.created_at.desc())
+    pagination = db.paginate(stmt, page=page, per_page=per_page, error_out=False)
+
+    items = list(reversed(pagination.items))
+    annotated = annotate_running_balance(user, items)
+    annotated.reverse()
+
+    return {
+        "transactions": annotated,
+        "total": pagination.total,
+        "page": pagination.page,
+        "pages": pagination.pages,
+    }
 
 
 @admin_bp.route("/api/admin/requests")

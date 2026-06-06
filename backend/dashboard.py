@@ -1,10 +1,8 @@
-from datetime import timedelta
-
 from flask import Blueprint
 from flask_login import current_user, login_required
 
-from catchup import annotate_running_balance, get_balance, run_catchup
-from models import Transaction, db, utcnow
+from catchup import annotate_running_balance, build_chart_data, get_balance, run_catchup
+from models import Transaction, db
 
 dashboard_bp = Blueprint("dashboard", __name__)
 
@@ -23,61 +21,10 @@ def dashboard():
         .limit(10)
     ).scalars().all()
 
-    # Chart data: daily balance for the last 90 days
-    cutoff_date = utcnow().date() - timedelta(days=90)
-    all_txns = db.session.execute(
-        db.select(Transaction)
-        .filter_by(user_id=current_user.id)
-        .order_by(Transaction.created_at.asc())
-    ).scalars().all()
-
-    # Build running balance series
-    labels = []
-    balances = []
-    running = 0.0
-
-    start_date_str = cutoff_date.isoformat()
-    start_point_added = False
-
-    for txn in all_txns:
-        delta = 0
-        if txn.type in ("income", "interest", "adjustment"):
-            delta = txn.amount
-        else:
-            delta = -txn.amount
-
-        txn_date = txn.created_at.date()
-        if txn_date < cutoff_date:
-            running += delta
-        else:
-            if not start_point_added:
-                labels.append(start_date_str)
-                balances.append(round(running, 2))
-                start_point_added = True
-
-            running += delta
-
-            day_label = txn_date.isoformat()
-            # Collapse multiple transactions on the same day to the last one
-            if labels and labels[-1] == day_label:
-                balances[-1] = round(running, 2)
-            else:
-                labels.append(day_label)
-                balances.append(round(running, 2))
-
-    if not start_point_added:
-        labels.append(start_date_str)
-        balances.append(round(running, 2))
-
-    today_str = utcnow().date().isoformat()
-    if labels and labels[-1] != today_str:
-        labels.append(today_str)
-        balances.append(balances[-1])
-
     return {
         "balance": balance,
         "recent_transactions": annotate_running_balance(
             current_user, list(reversed(recent))
         )[::-1],
-        "chart_data": {"labels": labels, "balances": balances},
+        "chart_data": build_chart_data(current_user),
     }

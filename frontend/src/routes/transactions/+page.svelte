@@ -1,7 +1,7 @@
 <script>
   import { onMount } from 'svelte';
   import { get } from '$lib/api.js';
-  import { formatCurrency, formatDate } from '$lib/utils.js';
+  import { formatCurrency, formatDate, formatSignedAmount, isDebitTxn } from '$lib/utils.js';
 
   let transactions = [];
   let total = 0;
@@ -59,6 +59,7 @@
       <option value="withdrawal">Withdrawals</option>
       <option value="interest">Interest</option>
       <option value="penalty">Penalties</option>
+      <option value="adjustment">Adjustments</option>
     </select>
   </label>
   <small>{total} transaction{total !== 1 ? 's' : ''}</small>
@@ -85,8 +86,8 @@
           <tr>
             <td>{formatDate(txn.created_at)}</td>
             <td><span class="badge badge-{txn.type}">{txn.type}</span></td>
-            <td class={(txn.type === 'withdrawal' || txn.type === 'penalty' || txn.amount < 0) ? 'balance-negative' : 'balance-positive'}>
-              {(txn.type === 'withdrawal' || txn.type === 'penalty' || txn.amount < 0) ? '-' : '+'}{formatCurrency(Math.abs(txn.amount))}
+            <td class={isDebitTxn(txn) ? 'balance-negative' : 'balance-positive'}>
+              {formatSignedAmount(txn)}
             </td>
             <td>{txn.description}</td>
             <td class={txn.balance_after >= 0 ? 'balance-positive' : 'balance-negative'}>

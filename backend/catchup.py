@@ -170,6 +170,75 @@ CREDIT_TYPES = ("income", "interest", "adjustment")
 DEBIT_TYPES = ("withdrawal", "penalty")
 
 
+def get_totals(user):
+    """Lifetime totals per transaction type (amounts stored positive)."""
+    rows = db.session.execute(
+        db.select(
+            Transaction.type,
+            db.func.coalesce(db.func.sum(Transaction.amount), 0),
+        )
+        .filter(Transaction.user_id == user.id)
+        .group_by(Transaction.type)
+    ).all()
+    by_type = {t: amt for t, amt in rows}
+    return {
+        "earned": round(by_type.get("income", 0), 2),
+        "interest": round(by_type.get("interest", 0), 2),
+        "penalties": round(by_type.get("penalty", 0), 2),
+        "withdrawn": round(by_type.get("withdrawal", 0), 2),
+    }
+
+
+def build_chart_data(user):
+    """Daily balance series for the last 90 days (UTC date buckets)."""
+    cutoff_date = utcnow().date() - timedelta(days=90)
+    all_txns = db.session.execute(
+        db.select(Transaction)
+        .filter_by(user_id=user.id)
+        .order_by(Transaction.created_at.asc())
+    ).scalars().all()
+
+    labels = []
+    balances = []
+    running = 0.0
+
+    start_date_str = cutoff_date.isoformat()
+    start_point_added = False
+
+    for txn in all_txns:
+        delta = txn.amount if txn.type in CREDIT_TYPES else -txn.amount
+
+        txn_date = txn.created_at.date()
+        if txn_date < cutoff_date:
+            running += delta
+        else:
+            if not start_point_added:
+                labels.append(start_date_str)
+                balances.append(round(running, 2))
+                start_point_added = True
+
+            running += delta
+
+            day_label = txn_date.isoformat()
+            # Collapse multiple transactions on the same day to the last one
+            if labels and labels[-1] == day_label:
+                balances[-1] = round(running, 2)
+            else:
+                labels.append(day_label)
+                balances.append(round(running, 2))
+
+    if not start_point_added:
+        labels.append(start_date_str)
+        balances.append(round(running, 2))
+
+    today_str = utcnow().date().isoformat()
+    if labels and labels[-1] != today_str:
+        labels.append(today_str)
+        balances.append(balances[-1])
+
+    return {"labels": labels, "balances": balances}
+
+
 def txn_with_balance(txn, balance_after):
     """Return a transaction dict with balance_after included."""
     d = txn.to_dict()
