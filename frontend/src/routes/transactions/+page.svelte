@@ -1,7 +1,7 @@
 <script>
   import { onMount } from 'svelte';
-  import { get } from '$lib/api.js';
-  import { formatCurrency, formatDate, formatSignedAmount, isDebitTxn } from '$lib/utils.js';
+  import { get } from '#lib/api.js';
+  import { formatCurrency, formatDate, formatSignedAmount, isDebitTxn } from '#lib/utils.js';
 
   let transactions = [];
   let total = 0;

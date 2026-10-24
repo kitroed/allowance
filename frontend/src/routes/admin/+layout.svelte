@@ -1,7 +1,7 @@
 <script>
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
-  import { user } from '$lib/stores.js';
+  import { user } from '#lib/stores.js';
 
   onMount(() => {
     const unsub = user.subscribe((u) => {

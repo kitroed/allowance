@@ -1,7 +1,7 @@
 <script>
   import { goto } from '$app/navigation';
-  import { post } from '$lib/api.js';
-  import { user } from '$lib/stores.js';
+  import { post } from '#lib/api.js';
+  import { user } from '#lib/stores.js';
 
   let username = '';
   let password = '';

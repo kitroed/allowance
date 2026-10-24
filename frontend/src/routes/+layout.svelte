@@ -1,12 +1,13 @@
 <script>
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
-  import { page } from '$app/stores';
-  import { get, post } from '$lib/api.js';
-  import { user } from '$lib/stores.js';
+  import { page } from '$app/state';
+  import { get, post } from '#lib/api.js';
+  import { user } from '#lib/stores.js';
   import '../app.css';
 
-  let loading = true;
+  let { children } = $props();
+  let loading = $state(true);
 
   onMount(async () => {
     try {
@@ -24,10 +25,12 @@
     goto('/login');
   }
 
-  $: currentPath = $page.url.pathname;
-  $: if (!loading && !$user && currentPath !== '/login') {
-    goto('/login');
-  }
+  const currentPath = $derived(page.url.pathname);
+  $effect(() => {
+    if (!loading && !$user && currentPath !== '/login') {
+      goto('/login');
+    }
+  });
 </script>
 
 {#if loading}
@@ -57,6 +60,6 @@
     </nav>
   {/if}
   <main class="container">
-    <slot />
+    {@render children()}
   </main>
 {/if}

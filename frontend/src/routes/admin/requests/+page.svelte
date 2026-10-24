@@ -1,7 +1,7 @@
 <script>
   import { onMount } from 'svelte';
-  import { get, put } from '$lib/api.js';
-  import { formatCurrency, formatDate } from '$lib/utils.js';
+  import { get, put } from '#lib/api.js';
+  import { formatCurrency, formatDate } from '#lib/utils.js';
 
   let requests = [];
   let loading = true;

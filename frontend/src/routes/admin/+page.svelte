@@ -1,7 +1,7 @@
 <script>
   import { onMount } from 'svelte';
-  import { get, post, put } from '$lib/api.js';
-  import { formatCurrency } from '$lib/utils.js';
+  import { get, post, put } from '#lib/api.js';
+  import { formatCurrency } from '#lib/utils.js';
 
   let children = [];
   let loading = true;

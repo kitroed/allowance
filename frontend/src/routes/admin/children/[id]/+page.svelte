@@ -1,13 +1,13 @@
 <script>
   import { onMount } from 'svelte';
-  import { page } from '$app/stores';
+  import { page } from '$app/state';
   import { Chart, registerables } from 'chart.js';
-  import { get } from '$lib/api.js';
-  import { formatCurrency, formatDate, formatSignedAmount, isDebitTxn } from '$lib/utils.js';
+  import { get } from '#lib/api.js';
+  import { formatCurrency, formatDate, formatSignedAmount, isDebitTxn } from '#lib/utils.js';
 
   Chart.register(...registerables);
 
-  $: childId = $page.params.id;
+  const childId = page.params.id;
 
   let detail = null;
   let loading = true;

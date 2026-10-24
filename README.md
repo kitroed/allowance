@@ -95,8 +95,7 @@ allowance/
 │   │       ├── withdraw/       # Withdrawal request form
 │   │       └── admin/          # Manage children, per-child detail, approve/deny requests
 │   ├── package.json
-│   ├── svelte.config.js
-│   └── vite.config.js
+│   └── vite.config.js      # Vite + SvelteKit config (adapter, dev proxy)
 └── data/                       # SQLite database (Docker volume)
 ```
 
