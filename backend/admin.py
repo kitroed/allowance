@@ -12,6 +12,7 @@ from catchup import (
     run_catchup,
 )
 from models import Transaction, User, WithdrawalRequest, db, utcnow
+from validation import parse_amount
 
 admin_bp = Blueprint("admin", __name__)
 
@@ -178,21 +179,19 @@ def resolve_request(request_id):
     if not data or data.get("status") not in ("approved", "denied"):
         return {"error": "status must be 'approved' or 'denied'"}, 400
 
+    if data["status"] == "approved":
+        amount = parse_amount(data.get("amount", wr.amount))
+        if amount is None:
+            return {"error": "Invalid amount"}, 400
+        if amount <= 0:
+            return {"error": "Amount must be positive"}, 400
+
     wr.status = data["status"]
     wr.resolved_at = utcnow()
     wr.resolved_by = current_user.id
 
     if data["status"] == "approved":
-        amount = data.get("amount", wr.amount)
-        try:
-            amount = float(amount)
-        except (TypeError, ValueError):
-            return {"error": "Invalid amount"}, 400
-
-        if amount <= 0:
-            return {"error": "Amount must be positive"}, 400
-
-        wr.amount = round(amount, 2)
+        wr.amount = amount
         txn = Transaction(
             user_id=wr.user_id,
             type="withdrawal",
@@ -216,9 +215,8 @@ def adjust_balance(user_id):
     if not data or "amount" not in data:
         return {"error": "Amount is required"}, 400
 
-    try:
-        amount = float(data["amount"])
-    except ValueError:
+    amount = parse_amount(data["amount"])
+    if amount is None:
         return {"error": "Invalid amount"}, 400
 
     if amount == 0:

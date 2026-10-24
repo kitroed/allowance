@@ -48,6 +48,13 @@ def run_catchup(user):
     if start_date > end_date:
         return
 
+    # Interest for a month-end is deferred until that day is over; if the last
+    # materialized day was a month-end, it has now passed and can be settled.
+    if last_income:
+        prev = start_date - timedelta(days=1)
+        if prev.day == calendar.monthrange(prev.year, prev.month)[1]:
+            _apply_monthly_interest(user, prev)
+
     current = start_date
     while current <= end_date:
         days_in_month = calendar.monthrange(current.year, current.month)[1]
@@ -62,7 +69,8 @@ def run_catchup(user):
         )
         db.session.add(txn)
 
-        if current.day == days_in_month:
+        # Skip today's month-end: later transactions today must count toward it.
+        if current.day == days_in_month and current < end_date:
             db.session.flush()
             _apply_monthly_interest(user, current)
 

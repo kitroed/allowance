@@ -3,6 +3,7 @@ from flask_login import current_user, login_required
 
 from models import WithdrawalRequest, db
 from notifications import notify_parent
+from validation import parse_amount
 
 withdrawals_bp = Blueprint("withdrawals", __name__)
 
@@ -14,13 +15,15 @@ def create_withdrawal():
     if not data or not data.get("amount"):
         return {"error": "Amount is required"}, 400
 
-    amount = float(data["amount"])
+    amount = parse_amount(data["amount"])
+    if amount is None:
+        return {"error": "Invalid amount"}, 400
     if amount <= 0:
         return {"error": "Amount must be positive"}, 400
 
     wr = WithdrawalRequest(
         user_id=current_user.id,
-        amount=round(amount, 2),
+        amount=amount,
         reason=data.get("reason", ""),
     )
     db.session.add(wr)

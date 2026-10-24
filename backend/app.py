@@ -1,7 +1,6 @@
 import os
 
 from flask import Flask, send_from_directory
-from flask_cors import CORS
 from flask_login import LoginManager
 
 from config import Config
@@ -13,7 +12,6 @@ def create_app():
     app.config.from_object(Config)
 
     db.init_app(app)
-    CORS(app, supports_credentials=True)
 
     login_manager = LoginManager()
     login_manager.init_app(app)
