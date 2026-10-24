@@ -1,0 +1,26 @@
+#!/bin/sh
+# Example deploy script: copy to deploy.sh (gitignored) and set your host.
+# Syncs the working tree to the server and rebuilds the container there.
+# `up -d --build` only replaces the running container once the new image
+# builds, so a failed build leaves the current version up.
+#
+# rsync never deletes on the server: if you remove a file locally, remove it
+# from the server by hand too (e.g. a stale config can break the build).
+set -e
+
+HOST="your-server"            # ssh host or alias from ~/.ssh/config
+REMOTE_DIR="/path/to/allowance"
+
+rsync -avz --progress \
+  --exclude '.git' \
+  --exclude 'frontend/node_modules' \
+  --exclude 'frontend/build' \
+  --exclude 'backend/.venv' \
+  --exclude 'backend/__pycache__' \
+  --exclude 'backend/instance' \
+  --exclude 'data/' \
+  --exclude 'deploy.sh' \
+  --exclude 'docker-compose.yml' \
+  ./ "$HOST:$REMOTE_DIR"
+
+ssh "$HOST" "cd '$REMOTE_DIR' && docker compose up -d --build"

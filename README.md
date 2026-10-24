@@ -45,6 +45,8 @@ The app will be available at `http://localhost:5000`.
 
 On first startup, the parent account is created automatically from the `ADMIN_USERNAME` and `ADMIN_PASSWORD` environment variables.
 
+To deploy to a remote Docker host, copy `deploy.sh.example` to `deploy.sh` (gitignored), set `HOST` and `REMOTE_DIR`, and run `sh deploy.sh`. It rsyncs the source and rebuilds the container on the server; the server keeps its own `docker-compose.yml` and `data/`.
+
 ## Configuration
 
 All configuration is done through environment variables (see `.env.example`):
@@ -67,6 +69,7 @@ allowance/
 ├── Dockerfile
 ├── entrypoint.sh
 ├── .env.example
+├── deploy.sh.example
 ├── backend/
 │   ├── app.py                  # App factory, blueprint registration, static serving
 │   ├── config.py               # Environment-based configuration
