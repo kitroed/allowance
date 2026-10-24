@@ -57,12 +57,19 @@ def create_user():
     ).scalars().first():
         return {"error": "Username already exists"}, 409
 
+    monthly_allowance = parse_amount(data.get("monthly_allowance", 0))
+    if monthly_allowance is None or monthly_allowance < 0:
+        return {"error": "Invalid monthly allowance"}, 400
+    starting_balance = parse_amount(data.get("starting_balance", 0))
+    if starting_balance is None:
+        return {"error": "Invalid starting balance"}, 400
+
     user = User(
         username=data["username"],
         display_name=data["display_name"],
         is_admin=False,
-        monthly_allowance=float(data.get("monthly_allowance", 0)),
-        starting_balance=float(data.get("starting_balance", 0)),
+        monthly_allowance=monthly_allowance,
+        starting_balance=starting_balance,
         allowance_start_date=date.fromisoformat(data["allowance_start_date"]) if data.get("allowance_start_date") else None,
     )
     user.set_password(data["password"])
@@ -83,16 +90,42 @@ def update_user(user_id):
     if not data:
         return {"error": "Request body required"}, 400
 
+    if "monthly_allowance" in data:
+        monthly_allowance = parse_amount(data["monthly_allowance"])
+        if monthly_allowance is None or monthly_allowance < 0:
+            return {"error": "Invalid monthly allowance"}, 400
+    if "starting_balance" in data:
+        starting_balance = parse_amount(data["starting_balance"])
+        if starting_balance is None:
+            return {"error": "Invalid starting balance"}, 400
+
+    # Settle what's owed under the current settings first, so a new rate or a
+    # pause applies from tomorrow rather than to days not yet materialized.
+    run_catchup(user)
+    was_paused = user.monthly_allowance <= 0
+    old_start_date = user.allowance_start_date
+
     if "display_name" in data:
         user.display_name = data["display_name"]
     if "monthly_allowance" in data:
-        user.monthly_allowance = float(data["monthly_allowance"])
+        user.monthly_allowance = monthly_allowance
     if "starting_balance" in data:
-        user.starting_balance = float(data["starting_balance"])
+        user.starting_balance = starting_balance
     if "allowance_start_date" in data:
         user.allowance_start_date = date.fromisoformat(data["allowance_start_date"]) if data["allowance_start_date"] else None
     if data.get("password"):
         user.set_password(data["password"])
+
+    # Resuming a paused allowance pays from today, not for the paused days,
+    # unless the parent explicitly picked a different start date.
+    if (
+        was_paused
+        and user.monthly_allowance > 0
+        and user.allowance_start_date == old_start_date
+    ):
+        today = utcnow().date()
+        if not old_start_date or old_start_date < today:
+            user.allowance_start_date = today
 
     db.session.commit()
     return user.to_dict()
@@ -131,15 +164,11 @@ def user_transactions(user_id):
     if txn_type:
         stmt = stmt.filter_by(type=txn_type)
 
-    stmt = stmt.order_by(Transaction.created_at.desc())
+    stmt = stmt.order_by(Transaction.created_at.desc(), Transaction.id.desc())
     pagination = db.paginate(stmt, page=page, per_page=per_page, error_out=False)
 
-    items = list(reversed(pagination.items))
-    annotated = annotate_running_balance(user, items)
-    annotated.reverse()
-
     return {
-        "transactions": annotated,
+        "transactions": annotate_running_balance(user, pagination.items),
         "total": pagination.total,
         "page": pagination.page,
         "pages": pagination.pages,

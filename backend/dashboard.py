@@ -17,14 +17,12 @@ def dashboard():
     recent = db.session.execute(
         db.select(Transaction)
         .filter_by(user_id=current_user.id)
-        .order_by(Transaction.created_at.desc())
+        .order_by(Transaction.created_at.desc(), Transaction.id.desc())
         .limit(10)
     ).scalars().all()
 
     return {
         "balance": balance,
-        "recent_transactions": annotate_running_balance(
-            current_user, list(reversed(recent))
-        )[::-1],
+        "recent_transactions": annotate_running_balance(current_user, recent),
         "chart_data": build_chart_data(current_user),
     }

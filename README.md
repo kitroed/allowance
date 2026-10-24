@@ -24,6 +24,7 @@ All daily income and interest calculations happen lazily on page load — no cro
 - **Parent visibility**: Drill into any child to see lifetime earnings (income, interest, penalties, withdrawals), a balance chart, and full transaction history
 - **Starting balance**: Set an initial balance when creating a child account
 - **Backfill support**: Set an allowance start date to retroactively generate income from any past date
+- **Pausing and rate changes**: Set the allowance to $0 to pause it; paused days pay nothing, and resuming pays from that day (the start date moves to the resume date unless you set one). Rate changes take effect the next day. Interest keeps accruing while paused.
 - **Notifications**: Optional integration with [ntfy](https://ntfy.sh) to alert parents of new withdrawal requests
 
 ## Tech Stack

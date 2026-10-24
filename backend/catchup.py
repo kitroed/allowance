@@ -7,8 +7,13 @@ from models import Transaction, db, utcnow
 
 
 def run_catchup(user):
-    """Materialize any missing daily income and month-end interest transactions."""
-    if user.monthly_allowance <= 0:
+    """Materialize any missing daily income and month-end interest transactions.
+
+    Income accrues only on days on or after allowance_start_date and while the
+    allowance is above zero; interest settles every month-end regardless, so a
+    paused allowance still earns (or is charged) interest on its balance.
+    """
+    if user.is_admin:
         return
 
     last_income = db.session.execute(
@@ -55,19 +60,24 @@ def run_catchup(user):
         if prev.day == calendar.monthrange(prev.year, prev.month)[1]:
             _apply_monthly_interest(user, prev)
 
+    # Days before this (e.g. while paused, see admin.update_user) earn nothing.
+    income_from = user.allowance_start_date or start_date
+
     current = start_date
     while current <= end_date:
         days_in_month = calendar.monthrange(current.year, current.month)[1]
         daily = round(user.monthly_allowance / days_in_month, 2)
 
-        txn = Transaction(
-            user_id=user.id,
-            type="income",
-            amount=daily,
-            description="Daily allowance",
-            created_at=datetime(current.year, current.month, current.day),
-        )
-        db.session.add(txn)
+        if daily > 0 and current >= income_from:
+            db.session.add(
+                Transaction(
+                    user_id=user.id,
+                    type="income",
+                    amount=daily,
+                    description="Daily allowance",
+                    created_at=datetime(current.year, current.month, current.day),
+                )
+            )
 
         # Skip today's month-end: later transactions today must count toward it.
         if current.day == days_in_month and current < end_date:
@@ -255,55 +265,34 @@ def txn_with_balance(txn, balance_after):
 
 
 def annotate_running_balance(user, transactions):
-    """Add balance_after to a list of transactions (assumed chronological ascending).
+    """Add balance_after to each transaction, preserving the list's order.
 
-    For a desc-ordered page, pass the list reversed, then reverse the result,
-    or use annotate_page_balances instead.
+    Balances come from a running total over all of the user's transactions
+    (ordered by created_at, then id), so they're correct for filtered or
+    non-contiguous lists too.
     """
-    # Get balance before the first transaction in the list
     if not transactions:
         return []
 
-    first_txn = transactions[0]
-    # Balance right before this transaction
-    balance_before = _balance_before(user, first_txn)
-
-    result = []
-    running = balance_before
-    for txn in transactions:
-        if txn.type in CREDIT_TYPES:
-            running += txn.amount
-        else:
-            running -= txn.amount
-        result.append(txn_with_balance(txn, round(running, 2)))
-    return result
-
-
-def _balance_before(user, txn):
-    """Calculate balance just before a given transaction."""
-    # Query 1: strictly earlier timestamp
-    q1 = db.select(db.func.coalesce(db.func.sum(Transaction.amount), 0)).filter(
-        Transaction.user_id == user.id,
-        Transaction.created_at < txn.created_at,
+    signed = db.case(
+        (Transaction.type.in_(CREDIT_TYPES), Transaction.amount),
+        else_=-Transaction.amount,
     )
-
-    # Query 2: same timestamp, earlier ID
-    q2 = db.select(db.func.coalesce(db.func.sum(Transaction.amount), 0)).filter(
-        Transaction.user_id == user.id,
-        Transaction.created_at == txn.created_at,
-        Transaction.id < txn.id,
+    running = (
+        db.select(
+            Transaction.id,
+            db.func.sum(signed)
+            .over(order_by=(Transaction.created_at, Transaction.id))
+            .label("balance"),
+        )
+        .filter(Transaction.user_id == user.id)
+        .subquery()
     )
-
-    credits = 0.0
-    debits = 0.0
-
-    for base_q in (q1, q2):
-        credits += db.session.execute(
-            base_q.filter(Transaction.type.in_(CREDIT_TYPES))
-        ).scalar()
-        debits += db.session.execute(
-            base_q.filter(Transaction.type.in_(DEBIT_TYPES))
-        ).scalar()
-
-    return round(credits - debits, 2)
-
+    balances = dict(
+        db.session.execute(
+            db.select(running.c.id, running.c.balance).filter(
+                running.c.id.in_([t.id for t in transactions])
+            )
+        ).all()
+    )
+    return [txn_with_balance(t, round(balances[t.id], 2)) for t in transactions]

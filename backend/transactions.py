@@ -20,16 +20,11 @@ def list_transactions():
     if txn_type:
         stmt = stmt.filter_by(type=txn_type)
 
-    stmt = stmt.order_by(Transaction.created_at.desc())
+    stmt = stmt.order_by(Transaction.created_at.desc(), Transaction.id.desc())
     pagination = db.paginate(stmt, page=page, per_page=per_page, error_out=False)
 
-    # Annotate with running balance (items are desc, reverse to asc, annotate, reverse back)
-    items = list(reversed(pagination.items))
-    annotated = annotate_running_balance(current_user, items)
-    annotated.reverse()
-
     return {
-        "transactions": annotated,
+        "transactions": annotate_running_balance(current_user, pagination.items),
         "total": pagination.total,
         "page": pagination.page,
         "pages": pagination.pages,
